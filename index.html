@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Datasette</title>
+
+  <link rel="icon" href="/favicon.svg" />
+  <title>Datasette - Nasa wakeup calls: Music to wake up to</title>
   <link rel="stylesheet" href="https://latest.datasette.io/-/static/app.css?cead5a">
 <style>
 #loading-indicator {
@@ -30,8 +32,7 @@ textarea#sql-editor {
   line-height: 1.4;
 }
 </style>
-<script defer data-domain="lite.datasette.io" src="https://plausible.io/js/script.manual.js"></script>
-<script>window.plausible = window.plausible || function() { (window.plausible.q = window.plausible.q || []).push(arguments) }</script>
+
 </head>
 <body>
 
@@ -158,19 +159,20 @@ datasetteWorker.onmessage = (event) => {
 
 <div id="output"></div>
 
-<form id="load-custom">
-  <p style="padding: 1em">
-    <button type="button" class="db-url">Load SQLite DB by URL</button>
-    <button type="button" class="csv-url">Load CSV</button>
-    <button type="button" class="json-url">Load JSON</button>
-    <button type="button" class="sql-url">Load SQL</button>
-    <a style="text-decoration: none; padding-left: 0.3em; color: #067EFF" href="https://github.com/simonw/datasette-lite">Documentation</a>
-  </p>
-</form>
+<p style="padding: 1em">
+  <a href="/datasette?install=datasette-query-links&install=datasette-copyable&install=datasette-yaml&install=datasette-dateutil" ><button type="button" class="csv-url">Reset Nasa Wakeup Calls</button></a>
+</p>
+
+<p style="margin: 2em;">
+  <h4 style="margin: 2em">Links</h4>
+  <ul style="margin: 2em; padding-bottom:1em">
+   <li>Nasa Wake Up Calls: <a href="https://nasawakeupcalls.github.io/" target="_blank">website</a></li>
+   <li>More on SQL syntax at <a target="_blank" href="https://www.w3schools.com/sql/">w3schools</a></li>
+   <li>Datasette: <a style="padding-left: 0.3em; color: #067EFF" href="https://github.com/simonw/datasette-lite">documentation</a></li>
+  </ul>
+</p>
 
 <script>
-const useAnalytics = location.hostname == "lite.datasette.io";
-useAnalytics && plausible('pageview');
 
 window.onpopstate = function(event) {
   console.log(event);
@@ -185,11 +187,18 @@ if (location.hash) {
 }
 
 function isExternal(url) {
+  // Cast regex match to boolean true or false.
   let startsWithProtocol = !!/^http:\/\/|https:\/\//.exec(url);
   if (!startsWithProtocol) {
+    // If we don't start with the protoocl, return false.
+    //
+    // NB. Not sure where we would not reach this.
     return false;
   }
-  // Is it localhost?
+  // Return false also if localhost without the protocol.
+  //
+  // Otherwise true for external.
+  //
   return new URL(url).host != 'localhost';
 }
 
@@ -208,7 +217,6 @@ function loadPath(path) {
   path = path.split("#")[0].replace("http://localhost", "");
   console.log({path});
   history.pushState({path: path}, path, "#" + path);
-  useAnalytics && plausible('pageview', {u: location.href.replace('?url=', '').replace('#', '/')});
   datasetteWorker.postMessage({path});
 }
 
@@ -248,74 +256,6 @@ output.addEventListener('submit', (ev => {
   }
 }), true);
 
-async function checkUrl(url, contentTypes) {
-  try {
-    response = (await fetch(url, {method: 'HEAD'}));
-    if (response.status != 200) {
-      return false;
-    }
-    if (contentTypes && (!contentTypes.includes(response.headers.get('content-type')))) {
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.error(error);
-    return false;
-  }
-}
-
-document.querySelector('#load-custom button.db-url').addEventListener('click', async function(ev) {
-  ev.preventDefault();
-  let url = fixUrl(prompt("Enter a full URL to a SQLite .db file"));
-  if (!url) {
-    return;
-  }
-  let valid = await checkUrl(url, ["application/octet-stream", "application/x-sqlite3", "application/vnd.sqlite3"]);
-  if (valid) {
-    location.href = location.pathname + '?url=' + encodeURIComponent(url);
-  } else {
-    alert("That database URL could not be loaded");
-  }
-});
-document.querySelector('#load-custom button.csv-url').addEventListener('click', async function(ev) {
-  ev.preventDefault();
-  let url = fixUrl(prompt("Enter a full URL to a CSV file"));
-  if (!url) {
-    return;
-  }
-  let valid = await checkUrl(url);
-  if (valid) {
-    location.href = location.pathname + '?csv=' + encodeURIComponent(url);
-  } else {
-    alert("That CSV could not be loaded");
-  }
-});
-document.querySelector('#load-custom button.json-url').addEventListener('click', async function(ev) {
-  ev.preventDefault();
-  let url = fixUrl(prompt("Enter a full URL to a JSON file"));
-  if (!url) {
-    return;
-  }
-  let valid = await checkUrl(url);
-  if (valid) {
-    location.href = location.pathname + '?json=' + encodeURIComponent(url);
-  } else {
-    alert("That JSON could not be loaded");
-  }
-});
-document.querySelector('#load-custom button.sql-url').addEventListener('click', async function(ev) {
-  ev.preventDefault();
-  let url = fixUrl(prompt("Enter a full URL to a SQL file"));
-  if (!url) {
-    return;
-  }
-  let valid = await checkUrl(url);
-  if (valid) {
-    location.href = location.pathname + '?sql=' + encodeURIComponent(url);
-  } else {
-    alert("That SQL could not be loaded");
-  }
-});
 </script>
 </body>
 </html>

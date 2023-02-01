@@ -36,8 +36,7 @@ async function startDatasette(settings) {
     toLoad.push(["data.db", 0]);
   }
   if (shouldLoadDefaults) {
-    toLoad.push(["fixtures.db", "https://latest.datasette.io/fixtures.db"]);
-    toLoad.push(["content.db", "https://datasette.io/content.db"]);
+    toLoad.push(["nasawakeupcalls.db", "nasawakeupcalls.db"]);
   }
   self.pyodide = await loadPyodide({
     indexURL: "https://cdn.jsdelivr.net/pyodide/v0.20.0/full/"
@@ -52,14 +51,15 @@ async function startDatasette(settings) {
     from pyodide.http import pyfetch
     names = []
     for name, url in ${JSON.stringify(toLoad)}:
+        print("Loading:", name, url)
         if url:
+            # "URL" is relative and loaded locally...
             response = await pyfetch(url)
             with open(name, "wb") as fp:
                 fp.write(await response.bytes())
         else:
             sqlite3.connect(name).execute("vacuum")
         names.append(name)
-
     import micropip
     # Workaround for Requested 'h11<0.13,>=0.11', but h11==0.13.0 is already installed
     await micropip.install("h11==0.12.0")
@@ -70,73 +70,12 @@ async function startDatasette(settings) {
     if install_urls:
         for install_url in install_urls:
             await micropip.install(install_url)
-    # Execute any ?sql=URL SQL
-    sqls = ${JSON.stringify(sqls)}
-    if sqls:
-        for sql_url in sqls:
-            # Fetch that SQL and execute it
-            response = await pyfetch(sql_url)
-            sql = await response.string()
-            sqlite3.connect("data.db").executescript(sql)
-    # Import data from ?csv=URL CSV files/?json=URL JSON files
-    csvs = ${JSON.stringify(csvs)}
-    jsons = ${JSON.stringify(jsons)}
-    if csvs or jsons:
-        await micropip.install("sqlite-utils==3.28")
-        import sqlite_utils, json
-        from sqlite_utils.utils import rows_from_file, TypeTracker, Format
-        db = sqlite_utils.Database("data.db")
-        table_names = set()
-        for csv_url in csvs:
-            # Derive table name from CSV URL
-            bit = csv_url.split("/")[-1].split(".")[0].split("?")[0]
-            bit = bit.strip()
-            if not bit:
-                bit = "table"
-            prefix = 0
-            base_bit = bit
-            while bit in table_names:
-                prefix += 1
-                bit = "{}_{}".format(base_bit, prefix)
-            table_names.add(bit)
-            tracker = TypeTracker()
-            response = await pyfetch(csv_url)
-            with open("csv.csv", "wb") as fp:
-                fp.write(await response.bytes())
-            db[bit].insert_all(
-                tracker.wrap(rows_from_file(open("csv.csv", "rb"), Format.CSV)[0])
-            )
-            db[bit].transform(
-                types=tracker.types
-            )
-        for json_url in jsons:
-            bit = json_url.split("/")[-1].split(".")[0].split("?")[0]
-            bit = bit.strip()
-            if not bit:
-                bit = "table"
-            prefix = 0
-            base_bit = bit
-            while bit in table_names:
-                prefix += 1
-                bit = "{}_{}".format(base_bit, prefix)
-            table_names.add(bit)
-            response = await pyfetch(json_url)
-            with open("json.json", "wb") as fp:
-                json_data = json.loads(await response.bytes())
-            # If it's an object, try to find first key that's a list of objects
-            if isinstance(json_data, dict):
-                for key, value in json_data.items():
-                    if isinstance(value, list) and value and isinstance(value[0], dict):
-                        json_data = value
-            assert isinstance(json_data, list), "JSON data must be a list of objects"
-            db[bit].insert_all(json_data)
-
     from datasette.app import Datasette
     ds = Datasette(names, settings={
         "num_sql_threads": 0,
     }, metadata = {
         "about": "Datasette Lite",
-        "about_url": "https://github.com/simonw/datasette-lite"
+        "about_url": "https://github.com/simonw/datasette-lite",
     })
     await ds.invoke_startup()
     `);
